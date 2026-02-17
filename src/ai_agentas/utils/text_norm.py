@@ -38,9 +38,13 @@ _ALL_BIB_HEADINGS = _BIB_HEADINGS | _BIB_HEADINGS_WITH_DIACRITICS
 def looks_like_heading(line: str) -> bool:
     """Ar eilute atrodo kaip bibliografijos skyriaus antraste."""
     l = norm_ws(line).lower()
-    # Pašaliname numeracija priekyje (pvz. "5. Literatura")
+    # Pasaliname numeracija priekyje (pvz. "5. Literatura")
     l = re.sub(r"^\d+[\.\)]\s*", "", l).strip()
-    return l in _ALL_BIB_HEADINGS
+    # Pasaliname gale esancius skyrybos zenklus (pvz. "LITERATURA:")
+    l = re.sub(r"[:;\-–—\.\s]+$", "", l).strip()
+    # PDF atveju kartais buna isskaidyta raidemis: "L I T E R A T U R A"
+    compact = re.sub(r"\s+", "", l)
+    return l in _ALL_BIB_HEADINGS or compact in {x.replace(" ", "") for x in _ALL_BIB_HEADINGS}
 
 
 # Antrasciau, kuriu atsiradimas reiskia, kad bibliografija baigesi

@@ -12,7 +12,8 @@ from .text_norm import (
 )
 
 
-_BIB_ITEM_BULLET_RE = re.compile(r"^\s*([\[\(]?\d+[\]\)]\.?|\-\s+|\u2022\s+)\s+")
+_BIB_ITEM_BULLET_RE = re.compile(r"^\s*(?:\[\d{1,4}\]|\d{1,4}[\.\)]|[-\u2022])\s*")
+_NUMBERED_ITEM_RE = re.compile(r"^\s*(?:\[\d{1,4}\]|\d{1,4}[\.\)])\s*")
 
 
 def _is_bib_item_like(line: str) -> bool:
@@ -127,6 +128,10 @@ def bibliography_to_entries(bibliography_text: str) -> list[str]:
     entries: list[str] = []
     buf: list[str] = []
 
+    # PDF numeruotu sarasu rezimas: jei daug eiluciu prasideda "1." / "2)" / "[3]"
+    numbered_lines = sum(1 for ln in lines if _NUMBERED_ITEM_RE.match(ln))
+    numbered_mode = numbered_lines >= 4
+
     def flush():
         nonlocal buf
         e = " ".join(norm_ws(x) for x in buf if norm_ws(x)).strip()
@@ -134,6 +139,7 @@ def bibliography_to_entries(bibliography_text: str) -> list[str]:
             entries.append(e)
         buf = []
 
+    processed_lines: list[str] = []
     for ln in lines:
         stripped = norm_ws(ln)
         if not stripped:
@@ -143,11 +149,21 @@ def bibliography_to_entries(bibliography_text: str) -> list[str]:
         if looks_like_stop_heading(ln):
             flush()
             break
+        processed_lines.append(ln)
         if buf and _BIB_ITEM_BULLET_RE.match(ln):
             flush()
         buf.append(ln)
 
     flush()
+
+    # Jei numeruotu eiluciu buvo daug, bet del PDF lauzymo dalis irasu susiliejo,
+    # atliekame papildoma skaidyma pagal numerinius markerius.
+    if numbered_mode:
+        joined = "\n".join(processed_lines)
+        parts = re.split(r"(?m)^\s*(?=(?:\[\d{1,4}\]|\d{1,4}[\.\)]))", joined)
+        forced_entries = [norm_ws(p) for p in parts if norm_ws(p)]
+        if len(forced_entries) > len(entries):
+            entries = forced_entries
 
     # Filtruojame: ismetame per trumpus ir aiksiai ne-saltininius
     return [e for e in entries if len(e) >= 15 and not _is_clearly_not_reference(e)]
