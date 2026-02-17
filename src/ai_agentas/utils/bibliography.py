@@ -51,8 +51,8 @@ def _is_clearly_not_reference(entry: str) -> bool:
     has_year = bool(re.search(r"\b(19|20)\d{2}\b", l))
     if upper_ratio > 0.6 and not has_year and len(l) < 100:
         return True
-    # Nera nei metu, nei autoriaus su taskeliu/kableliu, nei DOI/URL
-    has_punct = "." in l and "," in l
+    # Nera nei metu, nei bent bazines skyrybos, nei DOI/URL
+    has_punct = "." in l or "," in l or ":" in l
     has_doi_url = "doi" in l or "http" in l
     if not has_year and not has_punct and not has_doi_url and len(l) < 200:
         return True
@@ -72,24 +72,42 @@ def split_bibliography(text: str) -> BibliographySplit:
     if not lines:
         return BibliographySplit(body_text="", bibliography_text="", bibliography_start_line=None)
 
-    # 1) Antraste nuo galo
-    bib_heading_idx = None
-    for i in range(len(lines) - 1, -1, -1):
-        if looks_like_heading(lines[i]):
-            bib_heading_idx = i
-            break
-
-    if bib_heading_idx is not None:
-        # Nustatome bibliografijos pabaiga: iki kitos "stop" antrastes arba dokumento galo
-        bib_start = bib_heading_idx + 1
+    # 1) Ieskome visu bibliografijos antrasciu ir renkam geriausia kandidata
+    heading_candidates = [i for i, ln in enumerate(lines) if looks_like_heading(ln)]
+    best_heading = None  # (score, heading_idx, bib_start, bib_end)
+    for h_idx in heading_candidates:
+        bib_start = h_idx + 1
         bib_end = len(lines)
         for j in range(bib_start, len(lines)):
             if looks_like_stop_heading(lines[j]):
                 bib_end = j
                 break
 
+        seg = lines[bib_start:bib_end]
+        non_empty = [ln for ln in seg if norm_ws(ln)]
+        if len(non_empty) < 3:
+            continue
+        bib_like = sum(1 for ln in non_empty if _is_bib_item_like(ln))
+        year_like = sum(1 for ln in non_empty if re.search(r"\b(19|20)\d{2}\b", ln))
+        density = bib_like / max(1, len(non_empty))
+        year_density = year_like / max(1, len(non_empty))
+        score = density * 0.75 + year_density * 0.25
+        if score < 0.35:
+            continue
+        cand = (score, h_idx, bib_start, bib_end)
+        if best_heading is None:
+            best_heading = cand
+        else:
+            # prioritetas: didesnis score; jei panasus - imame velesne (arciau dokumento galo)
+            if cand[0] > best_heading[0] + 0.02:
+                best_heading = cand
+            elif abs(cand[0] - best_heading[0]) <= 0.02 and cand[1] > best_heading[1]:
+                best_heading = cand
+
+    if best_heading is not None:
+        _, h_idx, bib_start, bib_end = best_heading
         bib = join_lines(lines[bib_start:bib_end]).strip()
-        body = join_lines(lines[:bib_heading_idx]).rstrip()
+        body = join_lines(lines[:h_idx]).rstrip()
         return BibliographySplit(body_text=body, bibliography_text=bib, bibliography_start_line=bib_start)
 
     # 2) Heuristika: surandame nuo galo ilgesni segmenta su bib-item eiluciu dauguma
@@ -162,6 +180,7 @@ def bibliography_to_entries(bibliography_text: str) -> list[str]:
         joined = "\n".join(processed_lines)
         parts = re.split(r"(?m)^\s*(?=(?:\[\d{1,4}\]|\d{1,4}[\.\)]))", joined)
         forced_entries = [norm_ws(p) for p in parts if norm_ws(p)]
+        forced_entries = [e for e in forced_entries if len(e) >= 15 and not _is_clearly_not_reference(e)]
         if len(forced_entries) > len(entries):
             entries = forced_entries
 

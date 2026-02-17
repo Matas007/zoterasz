@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+import unicodedata
 from dataclasses import dataclass
 
 
@@ -35,6 +36,12 @@ _BIB_HEADINGS_WITH_DIACRITICS = {
 _ALL_BIB_HEADINGS = _BIB_HEADINGS | _BIB_HEADINGS_WITH_DIACRITICS
 
 
+def _ascii_fold(s: str) -> str:
+    s = unicodedata.normalize("NFKD", s)
+    s = "".join(ch for ch in s if not unicodedata.combining(ch))
+    return s
+
+
 def looks_like_heading(line: str) -> bool:
     """Ar eilute atrodo kaip bibliografijos skyriaus antraste."""
     l = norm_ws(line).lower()
@@ -44,7 +51,9 @@ def looks_like_heading(line: str) -> bool:
     l = re.sub(r"[:;\-–—\.\s]+$", "", l).strip()
     # PDF atveju kartais buna isskaidyta raidemis: "L I T E R A T U R A"
     compact = re.sub(r"\s+", "", l)
-    return l in _ALL_BIB_HEADINGS or compact in {x.replace(" ", "") for x in _ALL_BIB_HEADINGS}
+    folded = _ascii_fold(compact)
+    normalized_set = {_ascii_fold(x.replace(" ", "")) for x in _ALL_BIB_HEADINGS}
+    return compact in {x.replace(" ", "") for x in _ALL_BIB_HEADINGS} or folded in normalized_set
 
 
 # Antrasciau, kuriu atsiradimas reiskia, kad bibliografija baigesi
