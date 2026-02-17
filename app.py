@@ -3,7 +3,7 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-# Užtikriname, kad „src" paketas būtų randamas (svarbu Streamlit Cloud deploy'ui)
+# Uztikriname, kad "src" paketas butu randamas (svarbu Streamlit Cloud deploy'ui)
 sys.path.insert(0, str(Path(__file__).resolve().parent / "src"))
 
 import streamlit as st
@@ -58,7 +58,7 @@ with col1:
     if res.extracted_bibliography.strip():
         st.text_area("Bibliografija (raw tekstas)", res.extracted_bibliography, height=300)
     else:
-        st.warning("Bibliografijos blokas nerastas. Patikrinkite, ar dokumente yra „Literatūra" / „References" skyrius.")
+        st.warning('Bibliografijos blokas nerastas. Patikrinkite, ar dokumente yra "Literatura" / "References" skyrius.')
 
     st.subheader("BibTeX (importui į Zotero)")
     st.code(res.bibtex.bibtex, language="bibtex")
