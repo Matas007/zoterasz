@@ -52,6 +52,21 @@ def _safe(val: str | None, default: str = "") -> str:
     return val.strip() if val else default
 
 
+def _doi_already_in(parts: list[str], doi: str | None) -> bool:
+    """Tikrina ar DOI jau yra suformatuotoje eiluteje (kad nepasikartotu)."""
+    if not doi:
+        return False
+    combined = " ".join(parts).lower()
+    return doi.lower() in combined or "doi.org/" + doi.lower() in combined
+
+
+def _url_already_in(parts: list[str], url: str | None) -> bool:
+    if not url:
+        return False
+    combined = " ".join(parts).lower()
+    return url.lower() in combined
+
+
 def format_apa7(ref: ParsedReference) -> str:
     """APA 7th edition"""
     author = _fmt_authors_apa(ref.authors, ref.author)
@@ -71,9 +86,9 @@ def format_apa7(ref: ParsedReference) -> str:
         journal_part += "."
         parts.append(journal_part)
 
-    if ref.doi:
+    if ref.doi and not _doi_already_in(parts, ref.doi):
         parts.append(f"https://doi.org/{ref.doi}")
-    elif ref.url:
+    elif ref.url and not _url_already_in(parts, ref.url):
         parts.append(ref.url)
 
     return " ".join(parts)
@@ -101,7 +116,7 @@ def format_ieee(ref: ParsedReference, number: int) -> str:
     elif ref.year:
         parts.append(f"{ref.year}.")
 
-    if ref.doi:
+    if ref.doi and not _doi_already_in(parts, ref.doi):
         parts.append(f"doi: {ref.doi}.")
 
     return " ".join(parts)
@@ -130,9 +145,9 @@ def format_iso690(ref: ParsedReference) -> str:
     else:
         parts.append(f"{year}.")
 
-    if ref.doi:
+    if ref.doi and not _doi_already_in(parts, ref.doi):
         parts.append(f"DOI: {ref.doi}.")
-    elif ref.url:
+    elif ref.url and not _url_already_in(parts, ref.url):
         parts.append(f"Prieiga per: {ref.url}.")
 
     return " ".join(parts)
@@ -158,9 +173,9 @@ def format_mla9(ref: ParsedReference) -> str:
         journal_part += "."
         parts.append(journal_part)
 
-    if ref.doi:
+    if ref.doi and not _doi_already_in(parts, ref.doi):
         parts.append(f"https://doi.org/{ref.doi}.")
-    elif ref.url:
+    elif ref.url and not _url_already_in(parts, ref.url):
         parts.append(f"{ref.url}.")
 
     return " ".join(parts)

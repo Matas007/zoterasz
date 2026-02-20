@@ -110,35 +110,46 @@ def _split_authors(author_str: str | None) -> list[str]:
     return [s]
 
 
+_STRIP_DOI_URL_RE = re.compile(
+    r"\s*[\(\[]?\s*(?:doi\s*:\s*|https?://doi\.org/|https?://)\S+[\)\]]?$",
+    re.IGNORECASE,
+)
+
+
+def _strip_doi_url_suffix(text: str) -> str:
+    """Pasalina pasibaigiancio DOI/URL fragmenta is lauko pabaigos."""
+    return _STRIP_DOI_URL_RE.sub("", text).rstrip(" .,;(")
+
+
 def _extract_title(rest: str) -> str | None:
     if not rest:
         return None
     q_m = _QUOTED_TITLE_RE.search(rest)
     if q_m:
-        return norm_ws(q_m.group(1))
+        return norm_ws(_strip_doi_url_suffix(q_m.group(1)))
     parts = re.split(r"(?<=[^A-Z])\.\s+", rest, maxsplit=1)
     if parts:
-        candidate = norm_ws(parts[0])
+        candidate = norm_ws(_strip_doi_url_suffix(parts[0]))
         if len(candidate) >= 5:
             return candidate
-    return norm_ws(rest[:200]) if len(rest) > 5 else None
+    return norm_ws(_strip_doi_url_suffix(rest[:200])) if len(rest) > 5 else None
 
 
 def _extract_journal(rest: str) -> str | None:
     in_m = re.search(r"\bIn[:\s]+(.+?)(?:\.|,\s*(?:Vol|pp|\d))", rest, re.IGNORECASE)
     if in_m:
-        return norm_ws(in_m.group(1))
+        return norm_ws(_strip_doi_url_suffix(in_m.group(1)))
 
     parts = re.split(r"(?<=[^A-Z])\.\s+", rest)
     if len(parts) >= 2:
-        candidate = norm_ws(parts[1].split(",")[0])
+        candidate = norm_ws(_strip_doi_url_suffix(parts[1].split(",")[0]))
         if 3 < len(candidate) < 120:
             return candidate
 
     comma_parts = [norm_ws(x) for x in rest.split(",") if norm_ws(x)]
     if len(comma_parts) >= 2 and len(comma_parts[0]) > 3:
         if not re.search(r"\b(vol|no|pp)\b", comma_parts[0], re.IGNORECASE):
-            return comma_parts[0]
+            return norm_ws(_strip_doi_url_suffix(comma_parts[0]))
     return None
 
 
