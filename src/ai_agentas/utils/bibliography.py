@@ -14,6 +14,11 @@ from .text_norm import (
 
 _BIB_ITEM_BULLET_RE = re.compile(r"^\s*(?:\[\d{1,4}\]|\d{1,4}[\.\)]|[-\u2022])\s*")
 _NUMBERED_ITEM_RE = re.compile(r"^\s*(?:\[\d{1,4}\]|\d{1,4}[\.\)])\s*")
+_PDF_MARGIN_NOISE_RE = re.compile(
+    r"^\s*\d{1,3}\s*[a-z0-9.-]+\.[a-z]{2,}(?:/[^\s]+)?\s+"
+    r"(?:r\.\s*soc\.\s*open\s*sci\.?|journal|vol\.?\s*\d+|\d+:\s*\d+)",
+    re.IGNORECASE,
+)
 
 
 def _is_bib_item_like(line: str) -> bool:
@@ -36,6 +41,9 @@ def _is_clearly_not_reference(entry: str) -> bool:
     """Atfiltruoja irasus, kurie tikrai nera bibliografijos saltiniai."""
     l = norm_ws(entry).lower()
     if not l:
+        return True
+    # PDF paraščių/headerių triukšmas (pvz. "20royalsocietypublishing.org/... R. Soc. Open Sci. ...")
+    if _PDF_MARGIN_NOISE_RE.match(l):
         return True
     # Per trumpas
     if len(l) < 15:
